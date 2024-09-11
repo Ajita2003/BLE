@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="data:,">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 BLE Temperature and Humidity</title>
+</head>
+<body>
+    <h1>ESP32 BLE Sensor Data</h1>
+    <button onclick="connectToBle()">Connect to ESP32</button>
+    <p>Temperature: <span id="temperature">N/A</span></p>
+    <p>Humidity: <span id="humidity">N/A</span></p>
+
+    <script>
+        const serviceUUID = "8c4bd03a-341d-4035-88fe-76fd80361e38";
+        const tempCharUUID = "ba12cf70-7f43-418c-876e-ce82d6d256cc";
+        const humCharUUID = "05d67bce-8c93-4d45-ae8b-42ddef2bfc7f";
+
+        let temperatureCharacteristic;
+        let humidityCharacteristic;
+
+        async function connectToBle() {
+            try {
+                console.log('Requesting Bluetooth Device...');
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ name: 'ESP32_BLE' }],
+                    optionalServices: [serviceUUID]
+                });
+
+                console.log('Connecting to GATT Server...');
+                const server = await device.gatt.connect();
+
+                console.log('Getting Service...');
+                const service = await server.getPrimaryService(serviceUUID);
+
+                console.log('Getting Characteristics...');
+                temperatureCharacteristic = await service.getCharacteristic(tempCharUUID);
+                humidityCharacteristic = await service.getCharacteristic(humCharUUID);
+
+                // Start notifications for both characteristics
+                await temperatureCharacteristic.startNotifications();
+                await humidityCharacteristic.startNotifications();
+
+                // Add event listeners to handle incoming BLE data
+                temperatureCharacteristic.addEventListener('characteristicvaluechanged', handleTempChanged);
+                humidityCharacteristic.addEventListener('characteristicvaluechanged', handleHumChanged);
+
+                console.log('Connected! Receiving Data...');
+            } catch (error) {
+                console.log('Error:', error);
+            }
+        }
+
+        function handleTempChanged(event) {
+            const value = event.target.value;
+            const temperature = value.getFloat32(0, true); // Read as Float32
+            document.getElementById('temperature').textContent = `${temperature.toFixed(2)} °C`;
+        }
+
+        function handleHumChanged(event) {
+            const value = event.target.value;
+            const humidity = value.getFloat32(0, true); // Read as Float32
+            document.getElementById('humidity').textContent = `${humidity.toFixed(2)} %`;
+        }
+    </script>
+</body>
+</html>
